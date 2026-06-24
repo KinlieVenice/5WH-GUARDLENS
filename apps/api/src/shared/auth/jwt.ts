@@ -10,6 +10,9 @@ export function signAccessToken(claims: AccessClaims): string {
 }
 export function verifyAccessToken(token: string): AccessClaims {
   const decoded = jwt.verify(token, env.JWT_SECRET) as jwt.JwtPayload;
+  if (!decoded.tenantId || !decoded.userId || !decoded.sessionId || !decoded.role) {
+    throw new Error("token missing required claims");
+  }
   return {
     tenantId: String(decoded.tenantId), userId: String(decoded.userId),
     sessionId: String(decoded.sessionId), role: decoded.role as Role,
