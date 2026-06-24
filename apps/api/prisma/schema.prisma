@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  GUARD
+  SUPERVISOR
+  SECURITY_MANAGER
+  HOTEL_ADMIN
+  SUPER_ADMIN
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELED
+}
+
+enum UserStatus {
+  INVITED
+  ACTIVE
+  SUSPENDED
+}
+
+enum AuthTokenPurpose {
+  INVITE
+  PASSWORD_RESET
+}
+
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  users         User[]
+  sessions      Session[]
+  refreshTokens RefreshToken[]
+  authTokens    AuthToken[]
+  properties    Property[]
+}
+
+model User {
+  id           String     @id @default(cuid())
+  tenantId     String
+  email        String
+  name         String
+  passwordHash String?
+  role         Role       @default(GUARD)
+  status       UserStatus @default(INVITED)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sessions       Session[]
+  propertyAccess UserPropertyAccess[]
+  @@unique([tenantId, email])
+  @@index([tenantId, role])
+}
+
+model Session {
+  id          String    @id @default(cuid())
+  tenantId    String
+  userId      String
+  deviceLabel String?
+  userAgent   String?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+  lastSeenAt  DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+  @@index([tenantId, userId])
+}
+
+model RefreshToken {
+  id           String    @id @default(cuid())
+  tenantId     String
+  sessionId    String
+  tokenHash    String    @unique
+  replacedById String?   @unique
+  usedAt       DateTime?
+  revokedAt    DateTime?
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  session    Session       @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  replacedBy RefreshToken? @relation("TokenRotation", fields: [replacedById], references: [id])
+  replaces   RefreshToken? @relation("TokenRotation")
+  @@index([tenantId, sessionId])
+}
+
+model AuthToken {
+  id        String           @id @default(cuid())
+  tenantId  String
+  userId    String
+  purpose   AuthTokenPurpose
+  tokenHash String           @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime         @default(now())
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@index([tenantId, userId, purpose])
+}
+
+model UserPropertyAccess {
+  id         String @id @default(cuid())
+  tenantId   String
+  userId     String
+  propertyId String
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  @@unique([userId, propertyId])
+  @@index([tenantId, propertyId])
+}
+
+model Property {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  address   String?
+  timezone  String   @default("Asia/Manila")
+  createdAt DateTime @default(now())
+  tenant     Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userAccess UserPropertyAccess[]
+  @@index([tenantId])
+}
