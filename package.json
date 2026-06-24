@@ -1,0 +1,11 @@
+{
+  "name": "hotelsec",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "api:dev": "npm -w apps/api run dev",
+    "api:test": "npm -w apps/api run test"
+  }
+}
