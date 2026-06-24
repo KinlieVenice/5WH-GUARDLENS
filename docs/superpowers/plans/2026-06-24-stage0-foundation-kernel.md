@@ -833,9 +833,10 @@ git commit -m "feat(kernel): fail-closed tenant Prisma extension + scoped client
 - Create: `apps/api/src/tests/helpers/factories.ts`
 - Create: `apps/api/src/tests/leak-suite/allowlist-lock.test.ts`
 - Create: `apps/api/src/tests/leak-suite/isolation.test.ts`
+- Create: `apps/api/src/tests/leak-suite/base-client-boundary.test.ts`
 
 **Interfaces:**
-- Consumes: `getScopedPrisma`, `runWithContext`, `basePrisma`, `EXEMPT_MODELS`.
+- Consumes: `getScopedPrisma`, `asTenant` (helper from Task 5 fix), `basePrisma`, `EXEMPT_MODELS`.
 - Produces: `seedTwoTenants()` returning two tenant ids each owning one row per model.
 
 - [ ] **Step 1: Write the two-tenant factory**
@@ -901,11 +902,15 @@ describe("allowlist lock", () => {
 ```ts
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { getScopedPrisma } from "../../shared/prisma/index.js";
-import { runWithContext } from "../../shared/context/request-context.js";
 import { basePrisma } from "../../shared/prisma/base-client.js";
 import { resetDb } from "../helpers/test-db.js";
+import { asTenant } from "../helpers/context.js";
 import { seedTwoTenants, type TenantFixture } from "../helpers/factories.js";
 
+// NOTE: the scoped client reads context at EXECUTION time, so every scoped DB
+// call must be awaited WITHIN the tenant scope. Use the asTenant helper
+// (which awaits fn inside runWithContext) — never `runWithContext(ctx, () => prisma.x.op())`.
+//
 // Reseed before EVERY test: destructive ops (delete/cascade) must not leak
 // state between cases. Factories use passwordHash:"x" (no argon) so this is cheap.
 const READ_MODELS = ["user", "session", "refreshToken", "authToken", "userPropertyAccess", "property"] as const;
@@ -916,13 +921,13 @@ afterAll(async () => { await resetDb(); });
 describe("read isolation — every model, A never sees B", () => {
   for (const m of READ_MODELS) {
     it(`findMany/${m} returns only A's rows`, async () => {
-      const rows = await runWithContext({ tenantId: A.tenantId }, () => (getScopedPrisma() as any)[m].findMany());
+      const rows = await asTenant(A.tenantId, () => (getScopedPrisma() as any)[m].findMany());
       expect(rows.length).toBeGreaterThan(0);
       expect(rows.every((r: { tenantId: string }) => r.tenantId === A.tenantId)).toBe(true);
     });
     it(`count/${m} excludes B (all=2, scoped=1)`, async () => {
       const all = await (basePrisma as any)[m].count();
-      const scoped = await runWithContext({ tenantId: A.tenantId }, () => (getScopedPrisma() as any)[m].count());
+      const scoped = await asTenant(A.tenantId, () => (getScopedPrisma() as any)[m].count());
       expect(all).toBe(2);
       expect(scoped).toBe(1);
     });
@@ -933,22 +938,22 @@ describe("read isolation — every model, A never sees B", () => {
 // so it carries the per-write-op isolation checks — one for every risky op.
 describe("write/aggregate isolation on Property (covers every risky op)", () => {
   it("create stamps the context tenant and OVERRIDES a caller-supplied foreign tenantId", async () => {
-    const created = await runWithContext({ tenantId: A.tenantId }, () =>
+    const created = await asTenant(A.tenantId, () =>
       getScopedPrisma().property.create({ data: { name: "X", tenantId: B.tenantId } }), // attacker passes B
     );
     expect(created.tenantId).toBe(A.tenantId); // extension forces A, not B
   });
   it("createMany maps tenantId onto every row", async () => {
-    await runWithContext({ tenantId: A.tenantId }, () =>
+    await asTenant(A.tenantId, () =>
       getScopedPrisma().property.createMany({ data: [{ name: "a", tenantId: A.tenantId }, { name: "b", tenantId: A.tenantId }] }),
     );
-    const aCount = await runWithContext({ tenantId: A.tenantId }, () => getScopedPrisma().property.count());
-    const bCount = await runWithContext({ tenantId: B.tenantId }, () => getScopedPrisma().property.count());
+    const aCount = await asTenant(A.tenantId, () => getScopedPrisma().property.count());
+    const bCount = await asTenant(B.tenantId, () => getScopedPrisma().property.count());
     expect(aCount).toBe(3); // 1 seeded + 2
     expect(bCount).toBe(1);
   });
   it("updateMany cannot touch B", async () => {
-    const r = await runWithContext({ tenantId: A.tenantId }, () => getScopedPrisma().property.updateMany({ data: { name: "renamed" } }));
+    const r = await asTenant(A.tenantId, () => getScopedPrisma().property.updateMany({ data: { name: "renamed" } }));
     expect(r.count).toBe(1);
     const bProp = await basePrisma.property.findFirstOrThrow({ where: { tenantId: B.tenantId } });
     expect(bProp.name).toBe("P");
@@ -956,41 +961,88 @@ describe("write/aggregate isolation on Property (covers every risky op)", () => 
   it("update by id cannot cross tenants", async () => {
     const bProp = await basePrisma.property.findFirstOrThrow({ where: { tenantId: B.tenantId } });
     await expect(
-      runWithContext({ tenantId: A.tenantId }, () => getScopedPrisma().property.update({ where: { id: bProp.id }, data: { name: "hax" } })),
+      asTenant(A.tenantId, () => getScopedPrisma().property.update({ where: { id: bProp.id }, data: { name: "hax" } })),
     ).rejects.toThrow();
   });
   it("deleteMany cannot delete B", async () => {
-    await runWithContext({ tenantId: A.tenantId }, () => getScopedPrisma().property.deleteMany());
-    const bCount = await runWithContext({ tenantId: B.tenantId }, () => getScopedPrisma().property.count());
+    await asTenant(A.tenantId, () => getScopedPrisma().property.deleteMany());
+    const bCount = await asTenant(B.tenantId, () => getScopedPrisma().property.count());
     expect(bCount).toBe(1);
   });
   it("upsert stamps the context tenant", async () => {
-    const created = await runWithContext({ tenantId: A.tenantId }, () =>
+    const created = await asTenant(A.tenantId, () =>
       getScopedPrisma().property.upsert({ where: { id: "nonexistent" }, create: { name: "u", tenantId: A.tenantId }, update: { name: "u2" } }),
     );
     expect(created.tenantId).toBe(A.tenantId);
   });
   it("aggregate/groupBy stay within A", async () => {
-    const grouped = await runWithContext({ tenantId: A.tenantId }, () =>
+    const grouped = await asTenant(A.tenantId, () =>
       getScopedPrisma().property.groupBy({ by: ["tenantId"], _count: true }),
     );
     expect(grouped.every((g) => g.tenantId === A.tenantId)).toBe(true);
   });
 });
 ```
-(Raw-SQL isolation is enforced by the `rawQuery` wrapper in Task 7, which calls `requireContext()`; it is not exercised here.)
+(Raw-SQL isolation is enforced by the `rawQuery` wrapper in Task 7, which calls `requireContext()`; it is not exercised here. The `asTenant`/`asContext` helper was added in the Task 5 fix at `apps/api/src/tests/helpers/context.ts`.)
 
 (Note: `beforeEach` reseed makes every case independent, so cascade deletes can't corrupt sibling tests. The foreign-`tenantId` override case is the strongest isolation guarantee — it proves a buggy/malicious caller can't write into another tenant even by passing its id explicitly.)
 
+- [ ] **Step 3b: Write the unscoped-client import-boundary test**
+
+This structurally enforces the security boundary from the Task 4 review: the `runSystem` registry only *advises*; nothing stops a module from importing `basePrisma` directly and bypassing tenant scoping. This test fails if any non-test source file outside the sanctioned kernel set imports `base-client`.
+
+`apps/api/src/tests/leak-suite/base-client-boundary.test.ts`:
+```ts
+import { describe, it, expect } from "vitest";
+import { readdirSync, readFileSync, statSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join, relative } from "node:path";
+
+const SRC = join(dirname(fileURLToPath(import.meta.url)), "../../"); // apps/api/src
+
+// The ONLY non-test files permitted to import the unscoped base Prisma client.
+// Everything else must use getScopedPrisma() (tenant-scoped) or runSystem() (allowlisted).
+const SANCTIONED = new Set([
+  "shared/prisma/tenant-extension.ts", // builds the scoped client
+  "shared/prisma/system-client.ts",    // the runSystem allowlist path
+  "shared/db/raw.ts",                  // tenant-asserting raw wrapper (Task 7)
+  "jobs/token-cleanup.ts",             // cross-tenant maintenance (Task 19)
+]);
+
+function walk(dir: string, out: string[] = []): string[] {
+  for (const e of readdirSync(dir)) {
+    const p = join(dir, e);
+    if (statSync(p).isDirectory()) { if (e !== "tests") walk(p, out); }
+    else if (e.endsWith(".ts")) out.push(p);
+  }
+  return out;
+}
+
+describe("unscoped base-client import boundary", () => {
+  it("only sanctioned kernel files import base-client (no module/middleware bypass)", () => {
+    const offenders: string[] = [];
+    for (const file of walk(SRC)) {
+      const rel = relative(SRC, file).replace(/\\/g, "/");
+      const src = readFileSync(file, "utf8");
+      if (/from\s+["'][^"']*prisma\/base-client(?:\.js)?["']/.test(src) && !SANCTIONED.has(rel)) {
+        offenders.push(rel);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+```
+(Sanctioned files that don't exist yet — `shared/db/raw.ts`, `jobs/token-cleanup.ts` — simply won't appear as importers until their tasks; the subset check stays green. This test is the call-site half of the system-path lock.)
+
 - [ ] **Step 4: Run to verify they pass**
 
-Run: `npm -w apps/api run test -- src/tests/leak-suite/allowlist-lock.test.ts src/tests/leak-suite/isolation.test.ts`
-Expected: PASS — allowlist locked; every model isolates A from B.
+Run: `npm -w apps/api run test -- src/tests/leak-suite/allowlist-lock.test.ts src/tests/leak-suite/isolation.test.ts src/tests/leak-suite/base-client-boundary.test.ts`
+Expected: PASS — allowlist locked; every model isolates A from B; no unsanctioned base-client import.
 
 - [ ] **Step 5: Commit**
 ```bash
 git add -A
-git commit -m "test(leak): allowlist lock + parametrized tenant-isolation suite"
+git commit -m "test(leak): allowlist lock + tenant-isolation suite + base-client import boundary"
 ```
 
 ---
