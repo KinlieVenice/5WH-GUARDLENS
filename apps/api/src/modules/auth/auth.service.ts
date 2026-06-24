@@ -106,15 +106,19 @@ export async function issueAuthToken(userId: string, tenantId: string, purpose: 
 
 export async function redeemToken(input: { rawToken: string; password: string }): Promise<void> {
   const db = getScopedPrisma();
-  const token = await db.authToken.findFirst({ where: { tokenHash: hashToken(input.rawToken) } });
-  if (!token || token.usedAt || token.expiresAt < new Date()) {
-    throw new AppError("BAD_REQUEST", "Invalid or expired token", 400);
-  }
+  const invalid = new AppError("BAD_REQUEST", "Invalid or expired token", 400);
+  // Hash the password BEFORE opening the transaction so argon2 (~100ms) doesn't hold the row lock.
   const passwordHash = await hashPassword(input.password);
-  await db.$transaction([
-    db.user.update({ where: { id: token.userId }, data: { passwordHash, status: "ACTIVE" } }),
-    db.authToken.update({ where: { id: token.id }, data: { usedAt: new Date() } }),
-  ]);
+  await db.$transaction(async (tx) => {
+    const txdb = tx as typeof db;
+    const token = await txdb.authToken.findFirst({ where: { tokenHash: hashToken(input.rawToken) } });
+    if (!token || token.expiresAt < new Date()) throw invalid;
+    // Atomically CLAIM the token: the conditional updateMany is the single-use guard.
+    // Concurrent redeemers race here — only one update matches usedAt:null (count===1); the rest get 0.
+    const claimed = await txdb.authToken.updateMany({ where: { id: token.id, usedAt: null }, data: { usedAt: new Date() } });
+    if (claimed.count !== 1) throw invalid;
+    await txdb.user.update({ where: { id: token.userId }, data: { passwordHash, status: "ACTIVE" } });
+  });
 }
 
 export async function startPasswordReset(email: string, tenantId: string): Promise<void> {
