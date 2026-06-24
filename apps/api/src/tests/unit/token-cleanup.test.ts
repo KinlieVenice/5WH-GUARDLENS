@@ -13,10 +13,12 @@ describe("cleanupExpiredTokens", () => {
     const s = await basePrisma.session.create({ data: { tenantId: t.id, userId: u.id, expiresAt: new Date(Date.now() + 1e6) } });
     await basePrisma.refreshToken.create({ data: { tenantId: t.id, sessionId: s.id, tokenHash: "live", expiresAt: new Date(Date.now() + 1e6) } });
     await basePrisma.refreshToken.create({ data: { tenantId: t.id, sessionId: s.id, tokenHash: "dead", expiresAt: new Date(Date.now() - 1e6) } });
+    await basePrisma.authToken.create({ data: { tenantId: t.id, userId: u.id, purpose: "INVITE", tokenHash: "liveat", expiresAt: new Date(Date.now() + 1e6) } });
     await basePrisma.authToken.create({ data: { tenantId: t.id, userId: u.id, purpose: "INVITE", tokenHash: "deadat", expiresAt: new Date(Date.now() - 1e6) } });
     const r = await cleanupExpiredTokens();
     expect(r).toEqual({ refresh: 1, auth: 1 });
     expect(await basePrisma.refreshToken.count()).toBe(1);
-    expect(await basePrisma.authToken.count()).toBe(0);
+    // live auth token must survive; only the expired one is pruned
+    expect(await basePrisma.authToken.count()).toBe(1);
   });
 });

@@ -6,5 +6,7 @@ async function tick(): Promise<void> {
   console.log("[worker] token cleanup", r);
 }
 tick().catch(console.error);
-setInterval(() => { void tick(); }, HOUR);
+// Catch rejections on every interval tick too — an unhandled rejection (e.g. DB
+// outage during a scheduled run) would otherwise crash the long-running worker.
+setInterval(() => { tick().catch(console.error); }, HOUR);
 console.log("worker started: hourly token cleanup");
