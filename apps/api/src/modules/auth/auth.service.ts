@@ -1,12 +1,12 @@
 import { getScopedPrisma } from "../../shared/prisma/index.js";
-import { verifyPassword } from "../../shared/auth/password.js";
+import { verifyPassword, hashPassword } from "../../shared/auth/password.js";
 import { signAccessToken } from "../../shared/auth/jwt.js";
 import { generateToken, hashToken } from "../../shared/auth/tokens.js";
 import { issueCsrf } from "../../shared/auth/csrf.js";
 import { env } from "../../config/env.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import { recordFailure, failureCount, clearFailures } from "../../shared/rate-limit/limiter.js";
-import type { Role } from "@prisma/client";
+import type { Role, AuthTokenPurpose } from "@prisma/client";
 
 export type IssuedTokens = { accessToken: string; refreshToken: string; csrfToken: string };
 
@@ -91,4 +91,36 @@ export async function refresh(input: { rawToken: string }): Promise<IssuedTokens
   }
   await revokeFamily(token.sessionId);
   throw unauthorized;
+}
+
+export async function revokeSession(sessionId: string): Promise<void> {
+  await revokeFamily(sessionId);
+}
+
+export async function issueAuthToken(userId: string, tenantId: string, purpose: AuthTokenPurpose, ttlSeconds: number): Promise<string> {
+  const db = getScopedPrisma();
+  const { raw, hash } = generateToken();
+  await db.authToken.create({ data: { tenantId, userId, purpose, tokenHash: hash, expiresAt: new Date(Date.now() + ttlSeconds * 1000) } });
+  return raw; // caller emails this; we only store the hash
+}
+
+export async function redeemToken(input: { rawToken: string; password: string }): Promise<void> {
+  const db = getScopedPrisma();
+  const token = await db.authToken.findFirst({ where: { tokenHash: hashToken(input.rawToken) } });
+  if (!token || token.usedAt || token.expiresAt < new Date()) {
+    throw new AppError("BAD_REQUEST", "Invalid or expired token", 400);
+  }
+  const passwordHash = await hashPassword(input.password);
+  await db.$transaction([
+    db.user.update({ where: { id: token.userId }, data: { passwordHash, status: "ACTIVE" } }),
+    db.authToken.update({ where: { id: token.id }, data: { usedAt: new Date() } }),
+  ]);
+}
+
+export async function startPasswordReset(email: string, tenantId: string): Promise<void> {
+  const db = getScopedPrisma();
+  const user = await db.user.findFirst({ where: { email } });
+  if (!user || user.role === "GUARD") return; // silently no-op; never reveal existence
+  const raw = await issueAuthToken(user.id, tenantId, "PASSWORD_RESET", 3600);
+  console.info("[email] password reset link token (dev):", raw); // real email adapter is Stage 2
 }
