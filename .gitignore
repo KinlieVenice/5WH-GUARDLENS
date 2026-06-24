@@ -34,3 +34,6 @@ coverage/
 
 # Local Claude settings (machine-specific)
 .claude/settings.local.json
+
+# SDD scratch (briefs, reports, progress ledger)
+.superpowers/
