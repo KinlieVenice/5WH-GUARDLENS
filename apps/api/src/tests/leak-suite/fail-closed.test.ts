@@ -16,9 +16,9 @@ describe("request context", () => {
 
 import { beforeAll, afterAll } from "vitest";
 import { getScopedPrisma, EXEMPT_MODELS } from "../../shared/prisma/index.js";
-import { runWithContext as _rwc } from "../../shared/context/request-context.js";
 import { basePrisma } from "../../shared/prisma/base-client.js";
 import { resetDb } from "../helpers/test-db.js";
+import { asTenant } from "../helpers/context.js";
 
 describe("scoped prisma fail-closed", () => {
   beforeAll(async () => {
@@ -35,10 +35,16 @@ describe("scoped prisma fail-closed", () => {
   });
   it("auto-scopes reads to the context tenant", async () => {
     const t1 = await basePrisma.tenant.findUniqueOrThrow({ where: { slug: "t1" } });
-    await _rwc({ tenantId: t1.id }, async () => {
-      await getScopedPrisma().property.create({ data: { name: "P", tenantId: t1.id } });
-    });
-    const seen = await _rwc({ tenantId: "does-not-exist" }, () => getScopedPrisma().property.findMany());
+    await asTenant(t1.id, () => getScopedPrisma().property.create({ data: { name: "P", tenantId: t1.id } }));
+    const seen = await asTenant("does-not-exist", () => getScopedPrisma().property.findMany());
     expect(seen).toHaveLength(0);
+  });
+  it("update cannot reassign a row to another tenant (data.tenantId is overridden)", async () => {
+    const t1 = await basePrisma.tenant.findUniqueOrThrow({ where: { slug: "t1" } });
+    const t2 = await basePrisma.tenant.create({ data: { name: "T2", slug: "t2" } });
+    const p = await asTenant(t1.id, () => getScopedPrisma().property.create({ data: { name: "P2", tenantId: t1.id } }));
+    await asTenant(t1.id, () => getScopedPrisma().property.update({ where: { id: p.id }, data: { tenantId: t2.id, name: "renamed" } }));
+    const reloaded = await basePrisma.property.findUniqueOrThrow({ where: { id: p.id } });
+    expect(reloaded.tenantId).toBe(t1.id);
   });
 });
