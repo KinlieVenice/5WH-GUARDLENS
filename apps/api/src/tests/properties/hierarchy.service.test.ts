@@ -36,3 +36,19 @@ describe("property mutations", () => {
     expect(again.id).not.toBe(id);
   });
 });
+
+describe("building + floor mutations", () => {
+  it("creates building→floor and they appear in the tree", async () => {
+    const { id: pid } = await asContext(adminCtx(), () => svc.createProperty({ name: "HQ" }));
+    const { id: bid } = await asContext(adminCtx(), () => svc.createBuilding(pid, { name: "Tower" }));
+    await asContext(adminCtx(), () => svc.createFloor(bid, { name: "G", level: 0 }));
+    const tree = await asContext(adminCtx(), () => svc.getPropertyTree(pid));
+    expect(tree.buildings[0]!.name).toBe("Tower");
+    expect(tree.buildings[0]!.floors[0]!.name).toBe("G");
+  });
+  it("rejects a building under an archived property (409)", async () => {
+    const { id: pid } = await asContext(adminCtx(), () => svc.createProperty({ name: "HQ" }));
+    await asContext(adminCtx(), () => svc.archiveProperty(pid));
+    await expect(asContext(adminCtx(), () => svc.createBuilding(pid, { name: "X" }))).rejects.toMatchObject({ status: 409 });
+  });
+});

@@ -55,6 +55,86 @@ export async function archiveProperty(id: string): Promise<void> {
   await invalidatePropertyTree(tenantId, id);
 }
 
+// --- Building ---
+async function activeBuilding(id: string) {
+  const b = await getScopedPrisma().building.findFirst({ where: { id, archivedAt: null } });
+  if (!b) throw notFound();
+  return b;
+}
+async function assertUniqueBuilding(propertyId: string, name: string, exceptId?: string): Promise<void> {
+  const dup = await getScopedPrisma().building.findFirst({ where: { propertyId, name, archivedAt: null, ...(exceptId ? { id: { not: exceptId } } : {}) } });
+  if (dup) throw conflict("Name already in use");
+}
+
+export async function createBuilding(propertyId: string, input: { name: string }): Promise<{ id: string }> {
+  const { tenantId } = requireContext();
+  // 404 if property does not exist at all; 409 if it exists but is archived (parent-must-be-active rule)
+  const p = await getScopedPrisma().property.findFirst({ where: { id: propertyId } });
+  if (!p) throw notFound();
+  if (p.archivedAt) throw conflict("Property is archived");
+  await assertUniqueBuilding(propertyId, input.name);
+  const b = await getScopedPrisma().building.create({ data: { tenantId, propertyId, name: input.name } });
+  await invalidatePropertyTree(tenantId, propertyId);
+  return { id: b.id };
+}
+export async function updateBuilding(id: string, input: { name?: string }): Promise<void> {
+  const { tenantId } = requireContext();
+  const b = await activeBuilding(id);
+  if (input.name) await assertUniqueBuilding(b.propertyId, input.name, id);
+  await getScopedPrisma().building.update({ where: { id }, data: input });
+  await invalidatePropertyTree(tenantId, b.propertyId);
+}
+export async function archiveBuilding(id: string): Promise<void> {
+  const { tenantId } = requireContext();
+  const b = await activeBuilding(id);
+  const db = getScopedPrisma();
+  const now = new Date();
+  await db.$transaction([
+    db.zone.updateMany({ where: { archivedAt: null, floor: { buildingId: id } }, data: { archivedAt: now } }),
+    db.floor.updateMany({ where: { buildingId: id, archivedAt: null }, data: { archivedAt: now } }),
+    db.building.update({ where: { id }, data: { archivedAt: now } }),
+  ]);
+  await invalidatePropertyTree(tenantId, b.propertyId);
+}
+
+// --- Floor ---
+async function activeFloor(id: string) {
+  const f = await getScopedPrisma().floor.findFirst({ where: { id, archivedAt: null }, include: { building: true } });
+  if (!f) throw notFound();
+  return f;
+}
+async function assertUniqueFloor(buildingId: string, name: string, exceptId?: string): Promise<void> {
+  const dup = await getScopedPrisma().floor.findFirst({ where: { buildingId, name, archivedAt: null, ...(exceptId ? { id: { not: exceptId } } : {}) } });
+  if (dup) throw conflict("Name already in use");
+}
+
+export async function createFloor(buildingId: string, input: { name: string; level?: number }): Promise<{ id: string }> {
+  const { tenantId } = requireContext();
+  const b = await activeBuilding(buildingId);
+  await assertUniqueFloor(buildingId, input.name);
+  const f = await getScopedPrisma().floor.create({ data: { tenantId, buildingId, name: input.name, level: input.level ?? 0 } });
+  await invalidatePropertyTree(tenantId, b.propertyId);
+  return { id: f.id };
+}
+export async function updateFloor(id: string, input: { name?: string; level?: number }): Promise<void> {
+  const { tenantId } = requireContext();
+  const f = await activeFloor(id);
+  if (input.name) await assertUniqueFloor(f.buildingId, input.name, id);
+  await getScopedPrisma().floor.update({ where: { id }, data: input });
+  await invalidatePropertyTree(tenantId, f.building.propertyId);
+}
+export async function archiveFloor(id: string): Promise<void> {
+  const { tenantId } = requireContext();
+  const f = await activeFloor(id);
+  const db = getScopedPrisma();
+  const now = new Date();
+  await db.$transaction([
+    db.zone.updateMany({ where: { floorId: id, archivedAt: null }, data: { archivedAt: now } }),
+    db.floor.update({ where: { id }, data: { archivedAt: now } }),
+  ]);
+  await invalidatePropertyTree(tenantId, f.building.propertyId);
+}
+
 // Cache-aware read: serve from Redis, else assemble + cache. 404 if missing/archived.
 export async function getPropertyTree(propertyId: string): Promise<PropertyTree> {
   const { tenantId } = requireContext();
