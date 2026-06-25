@@ -36,9 +36,16 @@ export async function refresh(req: Request, res: Response, next: NextFunction): 
 
 export async function logout(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const sessionId = res.locals.claims.sessionId as string;
-    await authService.revokeSession(sessionId);
-    await audit.record({ action: "session.revoke", entityType: "Session", entityId: sessionId });
+    const { sessionId, impersonatedBy } = res.locals.claims;
+    if (impersonatedBy) {
+      // Impersonation tokens are stateless (no Session row); just end them client-side.
+      await audit.record({ action: "platform.impersonate.stop", entityType: "Tenant", entityId: res.locals.tenant.id });
+      clearAuthCookies(res);
+      ok(res, { ok: true });
+      return;
+    }
+    await authService.revokeSession(sessionId as string);
+    await audit.record({ action: "session.revoke", entityType: "Session", entityId: sessionId as string });
     clearAuthCookies(res);
     ok(res, { ok: true });
   } catch (e) { next(e); }

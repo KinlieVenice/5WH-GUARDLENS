@@ -1,5 +1,6 @@
 import type { RequestHandler } from "express";
-import { z, ZodTypeAny } from "zod";
+import { z } from "zod";
+import type { ZodTypeAny } from "zod";
 import { AppError } from "../errors/app-error.js";
 
 export function validateBody(schema: ZodTypeAny): RequestHandler {
