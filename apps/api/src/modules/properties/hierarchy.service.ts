@@ -169,7 +169,7 @@ export async function createZone(propertyId: string, input: { name: string; floo
 export async function updateZone(id: string, input: { name?: string; floorId?: string | null }): Promise<void> {
   const { tenantId } = requireContext();
   const z = await activeZone(id);
-  if (input.name) await assertUniqueZone(z.propertyId, input.name, id);
+  if (input.name !== undefined) await assertUniqueZone(z.propertyId, input.name, id);
   if (input.floorId) await assertFloorInProperty(input.floorId, z.propertyId);
   await getScopedPrisma().zone.update({ where: { id }, data: input });
   await invalidatePropertyTree(tenantId, z.propertyId);

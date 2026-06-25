@@ -93,4 +93,12 @@ describe("zone mutations + A9 consistency", () => {
     await asContext(adminCtx(), () => svc.archiveProperty(pid));
     await expect(asContext(adminCtx(), () => svc.createZone(pid, { name: "Z" }))).rejects.toMatchObject({ status: 409 });
   });
+  it("updateZone rejects re-parenting to a floor in another property (A9, 400)", async () => {
+    const { id: p1 } = await asContext(adminCtx(), () => svc.createProperty({ name: "P1" }));
+    const { id: p2 } = await asContext(adminCtx(), () => svc.createProperty({ name: "P2" }));
+    const { id: b2 } = await asContext(adminCtx(), () => svc.createBuilding(p2, { name: "B2" }));
+    const { id: f2 } = await asContext(adminCtx(), () => svc.createFloor(b2, { name: "G", level: 0 }));
+    const { id: zid } = await asContext(adminCtx(), () => svc.createZone(p1, { name: "Z" }));
+    await expect(asContext(adminCtx(), () => svc.updateZone(zid, { floorId: f2 }))).rejects.toMatchObject({ status: 400 });
+  });
 });
