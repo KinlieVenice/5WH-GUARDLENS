@@ -57,4 +57,40 @@ describe("building + floor mutations", () => {
     await asContext(adminCtx(), () => svc.archiveBuilding(bid));
     await expect(asContext(adminCtx(), () => svc.createFloor(bid, { name: "G" }))).rejects.toMatchObject({ status: 409 });
   });
+  it("archiving a building archives its floors but leaves property-level zones", async () => {
+    const { id: pid } = await asContext(adminCtx(), () => svc.createProperty({ name: "HQ" }));
+    const { id: bid } = await asContext(adminCtx(), () => svc.createBuilding(pid, { name: "Tower" }));
+    await asContext(adminCtx(), () => svc.createFloor(bid, { name: "G", level: 0 }));
+    await asContext(adminCtx(), () => svc.createZone(pid, { name: "Perimeter" })); // property-level
+    await asContext(adminCtx(), () => svc.archiveBuilding(bid));
+    const tree = await asContext(adminCtx(), () => svc.getPropertyTree(pid));
+    expect(tree.buildings).toEqual([]);
+    expect(tree.zones.map((z) => z.name)).toEqual(["Perimeter"]);
+  });
+});
+
+describe("zone mutations + A9 consistency", () => {
+  it("creates a floor-level zone and a property-level zone", async () => {
+    const { id: pid } = await asContext(adminCtx(), () => svc.createProperty({ name: "HQ" }));
+    const { id: bid } = await asContext(adminCtx(), () => svc.createBuilding(pid, { name: "Tower" }));
+    const { id: fid } = await asContext(adminCtx(), () => svc.createFloor(bid, { name: "G", level: 0 }));
+    await asContext(adminCtx(), () => svc.createZone(pid, { name: "Lobby", floorId: fid }));
+    await asContext(adminCtx(), () => svc.createZone(pid, { name: "Perimeter" }));
+    const tree = await asContext(adminCtx(), () => svc.getPropertyTree(pid));
+    expect(tree.buildings[0]!.floors[0]!.zones.map((z) => z.name)).toEqual(["Lobby"]);
+    expect(tree.zones.map((z) => z.name)).toEqual(["Perimeter"]);
+  });
+  it("rejects a zone whose floorId belongs to a different property (A9, 400)", async () => {
+    const { id: p1 } = await asContext(adminCtx(), () => svc.createProperty({ name: "P1" }));
+    const { id: p2 } = await asContext(adminCtx(), () => svc.createProperty({ name: "P2" }));
+    const { id: b2 } = await asContext(adminCtx(), () => svc.createBuilding(p2, { name: "B2" }));
+    const { id: f2 } = await asContext(adminCtx(), () => svc.createFloor(b2, { name: "G", level: 0 }));
+    await expect(asContext(adminCtx(), () => svc.createZone(p1, { name: "Bad", floorId: f2 })))
+      .rejects.toMatchObject({ status: 400 });
+  });
+  it("rejects a zone under an archived property (409)", async () => {
+    const { id: pid } = await asContext(adminCtx(), () => svc.createProperty({ name: "HQ" }));
+    await asContext(adminCtx(), () => svc.archiveProperty(pid));
+    await expect(asContext(adminCtx(), () => svc.createZone(pid, { name: "Z" }))).rejects.toMatchObject({ status: 409 });
+  });
 });

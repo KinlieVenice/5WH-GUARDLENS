@@ -138,6 +138,49 @@ export async function archiveFloor(id: string): Promise<void> {
   await invalidatePropertyTree(tenantId, f.building.propertyId);
 }
 
+// --- Zone ---
+async function activeZone(id: string) {
+  const z = await getScopedPrisma().zone.findFirst({ where: { id, archivedAt: null } });
+  if (!z) throw notFound();
+  return z;
+}
+async function assertUniqueZone(propertyId: string, name: string, exceptId?: string): Promise<void> {
+  const dup = await getScopedPrisma().zone.findFirst({ where: { propertyId, name, archivedAt: null, ...(exceptId ? { id: { not: exceptId } } : {}) } });
+  if (dup) throw conflict("Name already in use");
+}
+// A9: if a zone names a floor, that floor's building must belong to the zone's property.
+async function assertFloorInProperty(floorId: string, propertyId: string): Promise<void> {
+  const f = await activeFloor(floorId);
+  if (f.building.propertyId !== propertyId) throw new AppError("BAD_REQUEST", "Floor belongs to a different property", 400);
+}
+
+export async function createZone(propertyId: string, input: { name: string; floorId?: string }): Promise<{ id: string }> {
+  const { tenantId } = requireContext();
+  // 404 if property does not exist at all; 409 if it exists but is archived (parent-must-be-active rule)
+  const p = await getScopedPrisma().property.findFirst({ where: { id: propertyId } });
+  if (!p) throw notFound();
+  if (p.archivedAt) throw conflict("Property is archived");
+  await assertUniqueZone(propertyId, input.name);
+  if (input.floorId) await assertFloorInProperty(input.floorId, propertyId);
+  const z = await getScopedPrisma().zone.create({ data: { tenantId, propertyId, name: input.name, floorId: input.floorId ?? null } });
+  await invalidatePropertyTree(tenantId, propertyId);
+  return { id: z.id };
+}
+export async function updateZone(id: string, input: { name?: string; floorId?: string | null }): Promise<void> {
+  const { tenantId } = requireContext();
+  const z = await activeZone(id);
+  if (input.name) await assertUniqueZone(z.propertyId, input.name, id);
+  if (input.floorId) await assertFloorInProperty(input.floorId, z.propertyId);
+  await getScopedPrisma().zone.update({ where: { id }, data: input });
+  await invalidatePropertyTree(tenantId, z.propertyId);
+}
+export async function archiveZone(id: string): Promise<void> {
+  const { tenantId } = requireContext();
+  const z = await activeZone(id);
+  await getScopedPrisma().zone.update({ where: { id }, data: { archivedAt: new Date() } });
+  await invalidatePropertyTree(tenantId, z.propertyId);
+}
+
 // Cache-aware read: serve from Redis, else assemble + cache. 404 if missing/archived.
 export async function getPropertyTree(propertyId: string): Promise<PropertyTree> {
   const { tenantId } = requireContext();
