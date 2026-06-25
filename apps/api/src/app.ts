@@ -13,6 +13,7 @@ import { loadContext } from "./middleware/load-context.js";
 import { errorHandler } from "./shared/errors/handler.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
 import { propertyRoutes } from "./modules/properties/properties.routes.js";
+import { buildingRoutes, floorRoutes, zoneRoutes } from "./modules/properties/hierarchy.routes.js";
 import { platformRoutes } from "./modules/platform/platform.routes.js";
 
 export function createApp() {
@@ -26,6 +27,9 @@ export function createApp() {
   app.use("/api", resolveTenant, loadContext);
   app.use("/api/auth", authRoutes);
   app.use("/api/properties", propertyRoutes);
+  app.use("/api/buildings", buildingRoutes);
+  app.use("/api/floors", floorRoutes);
+  app.use("/api/zones", zoneRoutes);
   app.use("/api/platform", platformRoutes);
 
   app.use(errorHandler);
