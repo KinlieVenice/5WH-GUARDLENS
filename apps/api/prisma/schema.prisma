@@ -127,13 +127,54 @@ model UserPropertyAccess {
 }
 
 model Property {
-  id        String   @id @default(cuid())
-  tenantId  String
-  name      String
-  address   String?
-  timezone  String   @default("Asia/Manila")
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  tenantId   String
+  name       String
+  address    String?
+  timezone   String    @default("Asia/Manila")
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
   tenant     Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userAccess UserPropertyAccess[]
+  buildings  Building[]
+  zones      Zone[]
   @@index([tenantId])
+}
+
+model Building {
+  id         String    @id @default(cuid())
+  tenantId   String
+  propertyId String
+  name       String
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  floors   Floor[]
+  @@index([tenantId, propertyId])
+}
+
+model Floor {
+  id         String    @id @default(cuid())
+  tenantId   String
+  buildingId String
+  name       String
+  level      Int       @default(0) /// numeric so floors sort (B2=-2 … Ground=0)
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  zones    Zone[]
+  @@index([tenantId, buildingId])
+}
+
+model Zone {
+  id         String    @id @default(cuid())
+  tenantId   String
+  propertyId String
+  floorId    String?   /// optional → property-wide OR floor-level zone
+  name       String
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  floor    Floor?   @relation(fields: [floorId], references: [id], onDelete: SetNull)
+  @@index([tenantId, propertyId])
 }
