@@ -1,3 +1,5 @@
+// LEAK SUITE: guards the EXEMPT_MODELS / ALLOWED_SYSTEM_CALLERS allowlists — locks their exact contents so nobody silently widens a tenant-isolation hole.
+// LEAK SUITE: guards the EXEMPT_MODELS / ALLOWED_SYSTEM_CALLERS allowlists — locks their exact contents so nobody silently widens a tenant-isolation hole.
 import { describe, it, expect } from "vitest";
 import { EXEMPT_MODELS } from "../../shared/prisma/index.js";
 

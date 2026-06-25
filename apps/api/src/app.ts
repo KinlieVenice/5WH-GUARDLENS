@@ -1,3 +1,10 @@
+// Builds the Express app and wires the global middleware ORDER, which is load-bearing:
+//   helmet/json/cookies  → parse the request safely
+//   resolveTenant        → figure out which tenant this host belongs to (sets res.locals.tenant)
+//   loadContext          → enter the AsyncLocalStorage request context for that tenant
+//   <route handlers>     → run inside the context, so getScopedPrisma() is tenant-locked
+//   errorHandler         → last, converts thrown AppErrors into clean JSON envelopes
+// createApp() returns the app without listening, so tests can drive it via supertest.
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";

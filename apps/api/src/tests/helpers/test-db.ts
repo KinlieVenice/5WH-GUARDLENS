@@ -1,3 +1,5 @@
+// Per-test cleanup: truncate every table (via the unscoped client) between tests so each
+// case starts from a known-empty DB. Delete order respects foreign keys.
 import { basePrisma } from "../../shared/prisma/base-client.js";
 
 export async function resetDb(): Promise<void> {

@@ -1,3 +1,5 @@
+// Unit: argon2id hashing/verification, JWT sign+verify (incl. missing-claims guard), and the raw/hash token helpers.
+// Unit: argon2id hashing/verification, JWT sign+verify (incl. missing-claims guard), and the raw/hash token helpers.
 import { describe, it, expect } from "vitest";
 import jwt from "jsonwebtoken";
 import { hashPassword, verifyPassword } from "../../shared/auth/password.js";

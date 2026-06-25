@@ -1,3 +1,7 @@
+// SECOND middleware. Opens the AsyncLocalStorage "bubble" for this request so the
+// scoped Prisma client and audit logger can read tenant/user without being passed them.
+// Runs right after resolveTenant, so tenantId is always available; userId/role are only
+// known later (after `authenticate`), which mutates the same live context object.
 import type { RequestHandler } from "express";
 import { runWithContext, type RequestContext } from "../shared/context/request-context.js";
 

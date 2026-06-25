@@ -1,3 +1,5 @@
+// Unit: the cleanup job deletes only EXPIRED refresh/auth tokens and leaves live ones untouched.
+// Unit: the cleanup job deletes only EXPIRED refresh/auth tokens and leaves live ones untouched.
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { basePrisma } from "../../shared/prisma/base-client.js";
 import { resetDb } from "../helpers/test-db.js";

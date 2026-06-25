@@ -1,3 +1,5 @@
+// Proves: repeated bad logins trip the Redis-backed lockout (429) and a correct login clears the counter.
+// Proves: repeated bad logins trip the Redis-backed lockout (429) and a correct login clears the counter.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { client, HOST } from "../helpers/http.js";
 import { resetDb } from "../helpers/test-db.js";

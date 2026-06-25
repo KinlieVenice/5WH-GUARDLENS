@@ -1,3 +1,6 @@
+// Test fixtures. Uses the UNSCOPED basePrisma on purpose — it seeds rows for MULTIPLE
+// tenants up front, which the scoped client (locked to one tenant) couldn't do. The leak
+// suite then switches into one tenant's context and proves it can't reach the other's rows.
 import { basePrisma } from "../../shared/prisma/base-client.js";
 
 export type TenantFixture = {

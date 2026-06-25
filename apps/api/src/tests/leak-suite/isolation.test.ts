@@ -1,3 +1,5 @@
+// LEAK SUITE (the big one): every model is auto-stamped with tenantId on writes and filtered on reads, so tenant A can never see or touch tenant B rows by any operation.
+// LEAK SUITE (the big one): every model is auto-stamped with tenantId on writes and filtered on reads, so tenant A can never see or touch tenant B rows by any operation.
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { getScopedPrisma } from "../../shared/prisma/index.js";
 import { basePrisma } from "../../shared/prisma/base-client.js";

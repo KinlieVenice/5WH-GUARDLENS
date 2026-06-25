@@ -1,3 +1,5 @@
+// Proves: invite + password-reset tokens are single-use — redeeming activates the user and a second redeem of the same token fails.
+// Proves: invite + password-reset tokens are single-use — redeeming activates the user and a second redeem of the same token fails.
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { client, HOST } from "../helpers/http.js";
 import { resetDb } from "../helpers/test-db.js";

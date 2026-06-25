@@ -1,3 +1,5 @@
+// Proves: cookie-driven state-changing routes (logout) reject requests whose x-csrf-token header is missing or does not match the hs_csrf cookie (double-submit CSRF).
+// Proves: cookie-driven state-changing routes (logout) reject requests whose x-csrf-token header is missing or does not match the hs_csrf cookie (double-submit CSRF).
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { client, HOST } from "../helpers/http.js";
 import { resetDb } from "../helpers/test-db.js";

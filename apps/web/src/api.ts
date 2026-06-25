@@ -1,3 +1,8 @@
+// Tiny browser API client demonstrating the cookie-based auth contract:
+//  - credentials:"include" sends the httpOnly auth cookies on every request.
+//  - for non-GET requests it reads the readable hs_csrf cookie and echoes it back in the
+//    x-csrf-token header (the "double-submit" CSRF check the server's verifyCsrf expects).
+//  - on a 401 it transparently tries POST /auth/refresh once, then replays the request.
 function readCookie(name: string): string | null {
   return document.cookie.split("; ").find((c) => c.startsWith(`${name}=`))?.split("=")[1] ?? null;
 }

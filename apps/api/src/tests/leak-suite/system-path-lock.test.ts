@@ -1,3 +1,5 @@
+// LEAK SUITE: the system Prisma escape-hatch refuses to run unless the caller is on the ALLOWED_SYSTEM_CALLERS allowlist.
+// LEAK SUITE: the system Prisma escape-hatch refuses to run unless the caller is on the ALLOWED_SYSTEM_CALLERS allowlist.
 import { describe, it, expect } from "vitest";
 import { runSystem, ALLOWED_SYSTEM_CALLERS } from "../../shared/prisma/system-client.js";
 

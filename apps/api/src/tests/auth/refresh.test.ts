@@ -1,3 +1,5 @@
+// Proves: refresh-token rotation (each token single-use), the benign double-submit grace window, and that replaying a used token after grace burns the whole session (theft detection).
+// Proves: refresh-token rotation (each token single-use), the benign double-submit grace window, and that replaying a used token after grace burns the whole session (theft detection).
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { client, HOST } from "../helpers/http.js";
 import { resetDb } from "../helpers/test-db.js";

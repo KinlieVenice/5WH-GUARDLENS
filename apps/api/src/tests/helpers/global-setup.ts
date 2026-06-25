@@ -1,3 +1,6 @@
+// Vitest global setup: runs ONCE before the whole suite. Applies all Prisma migrations to
+// the dedicated test database (TEST_DATABASE_URL) so every test starts against a real,
+// up-to-date schema. Fails loudly if the test DB URL isn't configured.
 import { execSync } from "node:child_process";
 import "dotenv/config";
 

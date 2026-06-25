@@ -1,3 +1,7 @@
+// The brain of authentication. Controllers stay thin and call into here for the actual
+// session/token logic: logging in, issuing sessions, rotating refresh tokens (with theft
+// detection), revoking sessions, and the invite/password-reset token lifecycle. Everything
+// here uses the SCOPED prisma client, so it's automatically locked to the current tenant.
 import { getScopedPrisma } from "../../shared/prisma/index.js";
 import { verifyPassword, hashPassword } from "../../shared/auth/password.js";
 import { signAccessToken } from "../../shared/auth/jwt.js";
@@ -8,6 +12,7 @@ import { AppError } from "../../shared/errors/app-error.js";
 import { recordFailure, failureCount, clearFailures } from "../../shared/rate-limit/limiter.js";
 import type { Role, AuthTokenPurpose } from "@prisma/client";
 
+// The bundle of secrets handed to the browser as cookies after auth succeeds.
 export type IssuedTokens = { accessToken: string; refreshToken: string; csrfToken: string };
 
 // Creates a Session + first RefreshToken, returns cookie token bundle.
@@ -26,6 +31,10 @@ export async function issueSession(input: { userId: string; role: Role; tenantId
   return { accessToken, refreshToken: rt.raw, csrfToken: issueCsrf() };
 }
 
+// Email+password login. Order matters: check the lockout first, then look up the user,
+// then verify the password. Note the deliberately UNIFORM "Invalid credentials" error for
+// every failure reason (no such user / guard / inactive / wrong password) so an attacker
+// can't tell which emails exist. Every failure bumps the lockout counter.
 export async function login(input: { tenantId: string; email: string; password: string; userAgent?: string; ip?: string }): Promise<IssuedTokens> {
   const lockKey = `${input.tenantId}:${input.email}`;
   if ((await failureCount(lockKey)) >= env.LOGIN_MAX_FAILURES) {
@@ -45,6 +54,11 @@ export async function login(input: { tenantId: string; email: string; password: 
   return issueSession({ userId: user.id, role: user.role, tenantId: input.tenantId, userAgent: input.userAgent, ip: input.ip });
 }
 
+// Refresh-token ROTATION. Every time a refresh token is used, we mint a brand-new one and
+// retire the old one (single-use tokens). In one transaction: create the successor, mark
+// the old token used + point it at its successor (`replacedById`), and bump the session's
+// lastSeenAt. The replacedById chain is what lets `refresh` later tell a benign retry from
+// theft. Returns a fresh access token + the new refresh token.
 async function rotateFrom(tokenId: string, sessionId: string, tenantId: string, role: Role, userId: string): Promise<IssuedTokens> {
   const db = getScopedPrisma();
   const next = generateToken();
@@ -59,6 +73,9 @@ async function rotateFrom(tokenId: string, sessionId: string, tenantId: string, 
   return { accessToken, refreshToken: next.raw, csrfToken: issueCsrf() };
 }
 
+// Kill an entire session "family": revoke every refresh token in the session AND the
+// session row itself. Used both for normal logout and as the panic button when token
+// theft is detected (below). Atomic so a half-revoked state can't linger.
 async function revokeFamily(sessionId: string): Promise<void> {
   const db = getScopedPrisma();
   await db.$transaction([
@@ -67,6 +84,14 @@ async function revokeFamily(sessionId: string): Promise<void> {
   ]);
 }
 
+// Exchange a refresh token for a new token pair. This is the security-critical bit:
+//  1. Token unknown / revoked / expired → 401.
+//  2. Token NEVER used yet → normal rotation (the happy path).
+//  3. Token already used → either a benign double-submit (the client retried within a
+//     short grace window and a valid successor exists) which we forgive by rotating from
+//     the successor, OR a replay/theft, which trips revokeFamily() and forces re-login.
+// This catches the classic stolen-refresh-token attack: the moment a used token is
+// replayed after the grace window, the whole session is burned.
 export async function refresh(input: { rawToken: string }): Promise<IssuedTokens> {
   const db = getScopedPrisma();
   const token = await db.refreshToken.findFirst({
@@ -93,10 +118,13 @@ export async function refresh(input: { rawToken: string }): Promise<IssuedTokens
   throw unauthorized;
 }
 
+// Public wrapper used by logout to end one session.
 export async function revokeSession(sessionId: string): Promise<void> {
   await revokeFamily(sessionId);
 }
 
+// Create a one-time AuthToken (INVITE or PASSWORD_RESET) and return the RAW token to send
+// to the user. Only the hash is stored — the raw value lives only in the email link.
 export async function issueAuthToken(userId: string, tenantId: string, purpose: AuthTokenPurpose, ttlSeconds: number): Promise<string> {
   const db = getScopedPrisma();
   const { raw, hash } = generateToken();

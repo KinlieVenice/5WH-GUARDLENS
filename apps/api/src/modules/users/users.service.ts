@@ -1,3 +1,5 @@
+// User management for a tenant (currently just invites). Runs on the scoped Prisma client,
+// so created users are automatically stamped with the current tenant.
 import { getScopedPrisma } from "../../shared/prisma/index.js";
 import { issueAuthToken } from "../auth/auth.service.js";
 import type { Role } from "@prisma/client";

@@ -1,3 +1,5 @@
+// Proves: property-scoping — admins see ALL properties, supervisors only their granted ones, guards none.
+// Proves: property-scoping — admins see ALL properties, supervisors only their granted ones, guards none.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { runWithContext } from "../../shared/context/request-context.js";
 import { accessiblePropertyIds } from "../../shared/auth/property-scope.js";

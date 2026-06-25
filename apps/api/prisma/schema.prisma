@@ -1,3 +1,8 @@
+// Stage 0 data model. The through-line of every table is `tenantId`: it scopes every row to
+// one tenant, and the tenant-extension Prisma client auto-stamps/filters on it so isolation
+// can't be forgotten. Relationships: Tenant 1─*  User 1─*  Session 1─*  RefreshToken (the
+// rotation chain). AuthToken = one-time invite/reset links. Property ↔ User is many-to-many
+// through UserPropertyAccess (which users may see which properties).
 generator client {
   provider = "prisma-client-js"
 }
@@ -73,7 +78,7 @@ model Session {
   createdAt   DateTime  @default(now())
   lastSeenAt  DateTime  @default(now())
   expiresAt   DateTime
-  revokedAt   DateTime?
+  revokedAt   DateTime? /// set when the session is ended (logout) or burned by theft detection; a non-null value means "no longer valid"
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   refreshTokens RefreshToken[]
@@ -84,9 +89,9 @@ model RefreshToken {
   id           String    @id @default(cuid())
   tenantId     String
   sessionId    String
-  tokenHash    String    @unique
-  replacedById String?   @unique
-  usedAt       DateTime?
+  tokenHash    String    @unique /// we store only the HASH; the raw token lives only in the browser cookie
+  replacedById String?   @unique /// points to the successor token this one rotated into — the chain that distinguishes a benign retry from theft
+  usedAt       DateTime? /// set the moment this token is spent; reusing a spent token (past the grace window) trips theft detection
   revokedAt    DateTime?
   expiresAt    DateTime
   createdAt    DateTime  @default(now())
@@ -102,9 +107,9 @@ model AuthToken {
   tenantId  String
   userId    String
   purpose   AuthTokenPurpose
-  tokenHash String           @unique
+  tokenHash String           @unique /// only the hash is stored; the raw token is emailed to the user
   expiresAt DateTime
-  usedAt    DateTime?
+  usedAt    DateTime? /// single-use guard: claimed atomically on redeem so a token can't be used twice
   createdAt DateTime         @default(now())
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   @@index([tenantId, userId, purpose])

@@ -1,3 +1,5 @@
+// HTTP test helper: wraps the real Express app in supertest so tests can fire real requests
+// without opening a port. HOST is the tenant Host header that resolveTenant maps to "acme".
 import supertest from "supertest";
 import { createApp } from "../../app.js";
 

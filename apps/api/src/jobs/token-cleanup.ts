@@ -1,3 +1,4 @@
+// The token-cleanup job (run by the worker). Pure DB maintenance — see function below.
 import { basePrisma } from "../shared/prisma/base-client.js";
 
 // Cross-tenant maintenance: prune expired auth artifacts so hot-path tables

@@ -1,3 +1,5 @@
+// Unit: subdomain parsing — extracts the tenant slug from the host and ignores the base domain / unknown hosts.
+// Unit: subdomain parsing — extracts the tenant slug from the host and ignores the base domain / unknown hosts.
 import { describe, it, expect } from "vitest";
 import { tenantSlugFromHost } from "../../middleware/resolve-tenant.js";
 

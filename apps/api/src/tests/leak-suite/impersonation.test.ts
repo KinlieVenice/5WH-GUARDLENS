@@ -1,3 +1,5 @@
+// LEAK SUITE: impersonation tokens are stateless (no Session row), cannot be refreshed, and every start/stop is audited.
+// LEAK SUITE: impersonation tokens are stateless (no Session row), cannot be refreshed, and every start/stop is audited.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { client, HOST } from "../helpers/http.js";
 import { resetDb } from "../helpers/test-db.js";

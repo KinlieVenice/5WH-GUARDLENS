@@ -1,3 +1,5 @@
+// The audit trail. Records security-relevant actions (who did what, in which tenant, while
+// impersonating whom). See note below on the Stage 0 console-only implementation.
 import { getContext } from "../../shared/context/request-context.js";
 
 // Stage 0: structured-log audit. The AuditLog DB write lands in Stage 1.2.

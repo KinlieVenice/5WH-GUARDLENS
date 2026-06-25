@@ -1,3 +1,7 @@
+// The impersonation seam. Platform admins live in config (above any tenant) and can step
+// into a tenant to support it. The key design choice: the issued token is STATELESS — it's a
+// normal SUPER_ADMIN JWT stamped with `impersonatedBy`, but it creates NO Session/RefreshToken
+// rows. That means it can't be refreshed, self-expires in <=15 min, and every use is audited.
 import type { Request, Response, NextFunction } from "express";
 import { z } from "zod";
 import { findPlatformAdmin } from "../../config/platform-admins.js";

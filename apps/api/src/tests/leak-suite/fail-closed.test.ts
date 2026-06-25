@@ -1,3 +1,5 @@
+// LEAK SUITE: a scoped query with NO request context throws MissingContextError instead of silently running unscoped — the core fail-closed guarantee.
+// LEAK SUITE: a scoped query with NO request context throws MissingContextError instead of silently running unscoped — the core fail-closed guarantee.
 import { describe, it, expect } from "vitest";
 import { runWithContext, getContext, requireContext, MissingContextError } from "../../shared/context/request-context.js";
 

@@ -1,3 +1,5 @@
+// Proves: the limiter counts failures per key, enforces the max, and clears on success (end-to-end through Redis).
+// Proves: the limiter counts failures per key, enforces the max, and clears on success (end-to-end through Redis).
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { redis } from "../../shared/redis/client.js";
 import { rateLimit, recordFailure, failureCount, clearFailures } from "../../shared/rate-limit/limiter.js";

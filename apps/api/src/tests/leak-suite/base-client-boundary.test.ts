@@ -1,3 +1,5 @@
+// LEAK SUITE: the raw (unscoped) base Prisma client may only be imported by sanctioned files; this asserts that boundary.
+// LEAK SUITE: the raw (unscoped) base Prisma client may only be imported by sanctioned files; this asserts that boundary.
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";

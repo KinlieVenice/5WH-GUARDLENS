@@ -1,3 +1,5 @@
+// Unit: the HTTP response envelope helpers wrap data/errors into the exact agreed JSON shape.
+// Unit: the HTTP response envelope helpers wrap data/errors into the exact agreed JSON shape.
 import { describe, it, expect } from "vitest";
 import { AppError } from "../../shared/errors/app-error.js";
 import { toEnvelope } from "../../shared/errors/handler.js";

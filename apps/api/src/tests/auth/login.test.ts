@@ -1,3 +1,5 @@
+// Proves: login issues the 3 auth cookies on success and returns a UNIFORM error for every failure reason (no user enumeration); guards/inactive users cannot log in.
+// Proves: login issues the 3 auth cookies on success and returns a UNIFORM error for every failure reason (no user enumeration); guards/inactive users cannot log in.
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { client, HOST } from "../helpers/http.js";
 import { resetDb } from "../helpers/test-db.js";

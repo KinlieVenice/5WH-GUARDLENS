@@ -1,3 +1,6 @@
+// Thin React "auth shell" — a minimal UI whose only job is to exercise the real cookie/CSRF/
+// refresh flow end-to-end in a browser: log in, show who you are, log out. No router, no
+// styling system; deliberately bare. Real product UI is later-stage work.
 import { useState } from "react";
 import { api } from "./api.js";
 

@@ -1,3 +1,5 @@
+// Standalone background process (separate from the HTTP server). Runs the token-cleanup job
+// once at startup and then hourly forever. Kept deliberately tiny — it's just a scheduler.
 import { cleanupExpiredTokens } from "./jobs/token-cleanup.js";
 
 const HOUR = 3600_000;
