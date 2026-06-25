@@ -35,7 +35,7 @@ export async function createProperty(input: { name: string; address?: string; ti
 export async function updateProperty(id: string, input: { name?: string; address?: string; timezone?: string }): Promise<void> {
   const { tenantId } = requireContext();
   await activeProperty(id);
-  if (input.name) await assertUniqueProperty(input.name, id);
+  if (input.name !== undefined) await assertUniqueProperty(input.name, id);
   await getScopedPrisma().property.update({ where: { id }, data: input });
   await invalidatePropertyTree(tenantId, id);
 }
@@ -80,7 +80,7 @@ export async function createBuilding(propertyId: string, input: { name: string }
 export async function updateBuilding(id: string, input: { name?: string }): Promise<void> {
   const { tenantId } = requireContext();
   const b = await activeBuilding(id);
-  if (input.name) await assertUniqueBuilding(b.propertyId, input.name, id);
+  if (input.name !== undefined) await assertUniqueBuilding(b.propertyId, input.name, id);
   await getScopedPrisma().building.update({ where: { id }, data: input });
   await invalidatePropertyTree(tenantId, b.propertyId);
 }
@@ -110,7 +110,10 @@ async function assertUniqueFloor(buildingId: string, name: string, exceptId?: st
 
 export async function createFloor(buildingId: string, input: { name: string; level?: number }): Promise<{ id: string }> {
   const { tenantId } = requireContext();
-  const b = await activeBuilding(buildingId);
+  // 404 if building does not exist at all; 409 if it exists but is archived (parent-must-be-active rule)
+  const b = await getScopedPrisma().building.findFirst({ where: { id: buildingId } });
+  if (!b) throw notFound();
+  if (b.archivedAt) throw conflict("Building is archived");
   await assertUniqueFloor(buildingId, input.name);
   const f = await getScopedPrisma().floor.create({ data: { tenantId, buildingId, name: input.name, level: input.level ?? 0 } });
   await invalidatePropertyTree(tenantId, b.propertyId);
@@ -119,7 +122,7 @@ export async function createFloor(buildingId: string, input: { name: string; lev
 export async function updateFloor(id: string, input: { name?: string; level?: number }): Promise<void> {
   const { tenantId } = requireContext();
   const f = await activeFloor(id);
-  if (input.name) await assertUniqueFloor(f.buildingId, input.name, id);
+  if (input.name !== undefined) await assertUniqueFloor(f.buildingId, input.name, id);
   await getScopedPrisma().floor.update({ where: { id }, data: input });
   await invalidatePropertyTree(tenantId, f.building.propertyId);
 }

@@ -51,4 +51,10 @@ describe("building + floor mutations", () => {
     await asContext(adminCtx(), () => svc.archiveProperty(pid));
     await expect(asContext(adminCtx(), () => svc.createBuilding(pid, { name: "X" }))).rejects.toMatchObject({ status: 409 });
   });
+  it("rejects a floor under an archived building (409)", async () => {
+    const { id: pid } = await asContext(adminCtx(), () => svc.createProperty({ name: "HQ" }));
+    const { id: bid } = await asContext(adminCtx(), () => svc.createBuilding(pid, { name: "Tower" }));
+    await asContext(adminCtx(), () => svc.archiveBuilding(bid));
+    await expect(asContext(adminCtx(), () => svc.createFloor(bid, { name: "G" }))).rejects.toMatchObject({ status: 409 });
+  });
 });
