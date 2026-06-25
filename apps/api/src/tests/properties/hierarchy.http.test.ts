@@ -31,8 +31,11 @@ describe("hierarchy HTTP", () => {
     expect(p.status).toBe(200);
     const pid = p.body.data.id;
     const b = await client().post(`/api/properties/${pid}/buildings`).set("Host", HOST).set("Cookie", jar(admin)).send({ name: "Tower" });
+    expect(b.status).toBe(200);
     const f = await client().post(`/api/buildings/${b.body.data.id}/floors`).set("Host", HOST).set("Cookie", jar(admin)).send({ name: "G", level: 0 });
-    await client().post(`/api/properties/${pid}/zones`).set("Host", HOST).set("Cookie", jar(admin)).send({ name: "Lobby", floorId: f.body.data.id });
+    expect(f.status).toBe(200);
+    const z = await client().post(`/api/properties/${pid}/zones`).set("Host", HOST).set("Cookie", jar(admin)).send({ name: "Lobby", floorId: f.body.data.id });
+    expect(z.status).toBe(200);
     const tree = await client().get(`/api/properties/${pid}/tree`).set("Host", HOST).set("Cookie", jar(admin));
     expect(tree.body.data.buildings[0].floors[0].zones[0].name).toBe("Lobby");
   });
