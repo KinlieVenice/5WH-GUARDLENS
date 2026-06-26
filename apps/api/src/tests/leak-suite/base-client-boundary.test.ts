@@ -14,6 +14,7 @@ const SANCTIONED = new Set([
   "shared/prisma/system-client.ts",    // the runSystem allowlist path
   "shared/db/raw.ts",                  // tenant-asserting raw wrapper (Task 7)
   "jobs/token-cleanup.ts",             // cross-tenant maintenance (Task 19)
+  "modules/outbox/outbox.relay.ts",    // cross-tenant relay (Stage 1.3)
 ]);
 
 function walk(dir: string, out: string[] = []): string[] {

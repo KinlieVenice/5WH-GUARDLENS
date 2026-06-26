@@ -20,6 +20,11 @@ const schema = z.object({
   LOGIN_MAX_FAILURES: z.coerce.number().default(5), // bad logins before lockout
   LOGIN_LOCK_SECONDS: z.coerce.number().default(900), // lockout duration
   PLATFORM_ADMINS: z.string().default("[]"), // JSON array of impersonation admins
+  OUTBOX_MAX_ATTEMPTS: z.coerce.number().default(5),       // attempts before dead-lettering to FAILED
+  OUTBOX_BACKOFF_BASE_MS: z.coerce.number().default(1000), // exponential backoff base
+  OUTBOX_BACKOFF_CAP_MS: z.coerce.number().default(300000),// backoff ceiling (5 min)
+  OUTBOX_CLAIM_BATCH: z.coerce.number().default(10),       // rows claimed per relay tick
+  OUTBOX_LOCK_MS: z.coerce.number().default(30000),        // lockedUntil lease window
 });
 // Parse once; `env` is the typed, validated config used everywhere.
 export const env = schema.parse(process.env);
