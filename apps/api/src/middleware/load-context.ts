@@ -7,7 +7,7 @@ import { runWithContext, type RequestContext } from "../shared/context/request-c
 
 // Wraps the remainder of the chain in the AsyncLocalStorage context so the
 // scoped Prisma client and audit logger read it automatically.
-export const loadContext: RequestHandler = (_req, res, next) => {
+export const loadContext: RequestHandler = (req, res, next) => {
   const claims = res.locals.claims;
   const ctx: RequestContext = {
     tenantId: res.locals.tenant.id,
@@ -15,6 +15,7 @@ export const loadContext: RequestHandler = (_req, res, next) => {
     sessionId: claims?.sessionId,
     role: claims?.role,
     impersonatedBy: claims?.impersonatedBy,
+    ip: req.ip,
   };
   runWithContext(ctx, () => next());
 };

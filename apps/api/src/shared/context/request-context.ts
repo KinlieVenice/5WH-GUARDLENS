@@ -16,6 +16,7 @@ export type RequestContext = {
   sessionId?: string;
   role?: Role;
   impersonatedBy?: string; // platform admin id when this is an impersonation session
+  ip?: string;             // client IP, captured in loadContext for the audit trail
 };
 
 // Thrown whenever scoped code runs with NO context at all. We throw instead of
