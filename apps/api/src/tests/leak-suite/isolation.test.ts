@@ -14,7 +14,7 @@ import { seedTwoTenants, type TenantFixture } from "../helpers/factories.js";
 //
 // Reseed before EVERY test: destructive ops (delete/cascade) must not leak
 // state between cases. Factories use passwordHash:"x" (no argon) so this is cheap.
-const READ_MODELS = ["user", "session", "refreshToken", "authToken", "userPropertyAccess", "property", "building", "floor", "zone", "auditLog"] as const;
+const READ_MODELS = ["user", "session", "refreshToken", "authToken", "userPropertyAccess", "property", "building", "floor", "zone", "auditLog", "outboxEvent"] as const;
 let A: TenantFixture, B: TenantFixture;
 beforeEach(async () => { await resetDb(); const r = await seedTwoTenants(); A = r.a; B = r.b; });
 afterAll(async () => { await resetDb(); });
