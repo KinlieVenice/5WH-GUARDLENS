@@ -43,7 +43,8 @@ async function processOne(e: Claimed): Promise<"processed" | "failed"> {
       where: { id: e.id }, data: { status: "PROCESSED", processedAt: new Date(), lockedUntil: null },
     });
     return "processed";
-  } catch {
+  } catch (err) {
+    console.error("[outbox] handler failed", { id: e.id, type: e.type, error: err instanceof Error ? err.message : String(err) });
     const attempts = e.attempts + 1;
     const dead = attempts >= Number(env.OUTBOX_MAX_ATTEMPTS);
     const backoff = Math.min(Number(env.OUTBOX_BACKOFF_BASE_MS) * 2 ** attempts, Number(env.OUTBOX_BACKOFF_CAP_MS));

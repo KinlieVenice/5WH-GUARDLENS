@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, beforeEach, afterAll, vi } from "vitest";
 import { basePrisma } from "../../shared/prisma/base-client.js";
 import { getScopedPrisma } from "../../shared/prisma/index.js";
 import { resetDb } from "../helpers/test-db.js";
@@ -46,14 +46,17 @@ describe("outbox relay", () => {
   it("backs off on failure and dead-letters to FAILED after MAX_ATTEMPTS", async () => {
     register("test.fail", async () => { throw new Error("always"); });
     await enqueue(tenantId, "test.fail");
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     for (let i = 0; i < 5; i++) {
       // make the row due again (skip the backoff wait), then run
-      await basePrisma.outboxEvent.updateMany({ where: { type: "test.fail" }, data: { nextAttemptAt: new Date() } });
+      await basePrisma.outboxEvent.updateMany({ where: { type: "test.fail" }, data: { nextAttemptAt: new Date(Date.now() - 1000) } });
       await runRelayOnce();
     }
+    errSpy.mockRestore();
     const row = await basePrisma.outboxEvent.findFirstOrThrow({ where: { type: "test.fail" } });
     expect(row.status).toBe("FAILED");
     expect(row.attempts).toBe(5);
+    expect(row.lockedUntil).toBeNull();
   });
 
   it("two concurrent relays never process the same row (SKIP LOCKED)", async () => {
