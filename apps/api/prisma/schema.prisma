@@ -49,6 +49,7 @@ model Tenant {
   refreshTokens RefreshToken[]
   authTokens    AuthToken[]
   properties    Property[]
+  auditLogs     AuditLog[]
 }
 
 model User {
@@ -177,4 +178,23 @@ model Zone {
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   floor    Floor?   @relation(fields: [floorId], references: [id], onDelete: SetNull)
   @@index([tenantId, propertyId])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  tenantId       String
+  actorUserId    String?
+  impersonatedBy String?
+  action         String
+  entityType     String
+  entityId       String
+  metadata       Json?
+  ipAddress      String?
+  at             DateTime @default(now())
+  correctsId     String?
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  corrects    AuditLog?  @relation("AuditCorrection", fields: [correctsId], references: [id])
+  correctedBy AuditLog[] @relation("AuditCorrection")
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, at])
 }
