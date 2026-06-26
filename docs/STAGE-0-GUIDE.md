@@ -4,6 +4,9 @@
 > Stage 1 and you'll understand *what* exists, *how the files connect*, and *why*
 > each piece is shaped the way it is. Every source file also has comments now, so
 > once you know the map you can dive into any file and it'll explain itself.
+>
+> **Next:** once you've read this, see [`STAGE-1-GUIDE.md`](STAGE-1-GUIDE.md) for the
+> first product slice (the Property → Building → Floor → Zone hierarchy).
 
 ---
 

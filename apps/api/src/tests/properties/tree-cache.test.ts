@@ -1,3 +1,4 @@
+// Proves: assembleTree nests active buildings→floors→zones (property-level zones separate), excludes archived nodes, returns null for an archived/absent property; and the Redis cache round-trips + invalidation deletes the key.
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { basePrisma } from "../../shared/prisma/base-client.js";
 import { resetDb } from "../helpers/test-db.js";

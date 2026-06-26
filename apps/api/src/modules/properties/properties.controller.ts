@@ -10,6 +10,9 @@ import { ok } from "../../shared/http/envelope.js";
 import { AppError } from "../../shared/errors/app-error.js";
 import { audit } from "../audit/audit.js";
 
+// Zod schemas for each write body. validateBody (wired in the routes) runs these with `.strict()`,
+// so unknown/extra fields are rejected before a handler runs. `.optional()` fields may be omitted;
+// updateZone's floorId is `.nullable()` so a client can explicitly clear a zone's floor (set null).
 export const createPropertySchema = z.object({ name: z.string().min(1), address: z.string().optional(), timezone: z.string().optional() });
 export const updatePropertySchema = z.object({ name: z.string().min(1).optional(), address: z.string().optional(), timezone: z.string().optional() });
 export const createBuildingSchema = z.object({ name: z.string().min(1) });
@@ -39,6 +42,7 @@ export async function getTree(req: Request, res: Response, next: NextFunction): 
   } catch (e) { next(e); }
 }
 
+// POST /api/properties — create a property; audits property.create.
 export async function createProperty(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const r = await svc.createProperty(req.body);
@@ -46,6 +50,7 @@ export async function createProperty(req: Request, res: Response, next: NextFunc
     ok(res, r);
   } catch (e) { next(e); }
 }
+// PATCH /api/properties/:id — edit a property's fields.
 export async function updateProperty(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -54,6 +59,7 @@ export async function updateProperty(req: Request, res: Response, next: NextFunc
     ok(res, { ok: true });
   } catch (e) { next(e); }
 }
+// PATCH /api/properties/:id/archive — archive the property and its whole subtree.
 export async function archiveProperty(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -63,6 +69,7 @@ export async function archiveProperty(req: Request, res: Response, next: NextFun
   } catch (e) { next(e); }
 }
 
+// POST /api/properties/:id/buildings — add a building to a property.
 export async function createBuilding(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -71,6 +78,7 @@ export async function createBuilding(req: Request, res: Response, next: NextFunc
     ok(res, r);
   } catch (e) { next(e); }
 }
+// PATCH /api/buildings/:id — rename a building.
 export async function updateBuilding(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -79,6 +87,7 @@ export async function updateBuilding(req: Request, res: Response, next: NextFunc
     ok(res, { ok: true });
   } catch (e) { next(e); }
 }
+// PATCH /api/buildings/:id/archive — archive a building (+ its floors and their zones).
 export async function archiveBuilding(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -88,6 +97,7 @@ export async function archiveBuilding(req: Request, res: Response, next: NextFun
   } catch (e) { next(e); }
 }
 
+// POST /api/buildings/:id/floors — add a floor to a building.
 export async function createFloor(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -96,6 +106,7 @@ export async function createFloor(req: Request, res: Response, next: NextFunctio
     ok(res, r);
   } catch (e) { next(e); }
 }
+// PATCH /api/floors/:id — edit a floor (name/level).
 export async function updateFloor(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -104,6 +115,7 @@ export async function updateFloor(req: Request, res: Response, next: NextFunctio
     ok(res, { ok: true });
   } catch (e) { next(e); }
 }
+// PATCH /api/floors/:id/archive — archive a floor (+ its zones).
 export async function archiveFloor(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -113,6 +125,7 @@ export async function archiveFloor(req: Request, res: Response, next: NextFuncti
   } catch (e) { next(e); }
 }
 
+// POST /api/properties/:id/zones — add a zone (optionally floor-level via floorId).
 export async function createZone(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -121,6 +134,7 @@ export async function createZone(req: Request, res: Response, next: NextFunction
     ok(res, r);
   } catch (e) { next(e); }
 }
+// PATCH /api/zones/:id — edit / re-parent a zone.
 export async function updateZone(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;
@@ -129,6 +143,7 @@ export async function updateZone(req: Request, res: Response, next: NextFunction
     ok(res, { ok: true });
   } catch (e) { next(e); }
 }
+// PATCH /api/zones/:id/archive — archive a single zone.
 export async function archiveZone(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = req.params["id"] as string;

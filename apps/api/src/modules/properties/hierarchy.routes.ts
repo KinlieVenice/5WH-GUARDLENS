@@ -6,6 +6,8 @@ import { requireRole } from "../../shared/auth/rbac.js";
 import { validateBody } from "../../shared/validation/validate.js";
 import * as ctrl from "./properties.controller.js";
 
+// Reused guard: must be logged in (authenticate) AND a tenant admin (requireRole). Spread onto
+// every write route below so a supervisor/guard token gets a 403 before the handler runs.
 const admin = [authenticate, requireRole("HOTEL_ADMIN", "SUPER_ADMIN")];
 
 export const buildingRoutes = Router();

@@ -1,3 +1,4 @@
+// Proves end-to-end over HTTP: an admin builds property→building→floor→zone and reads the tree; a non-admin (supervisor) write is 403; the tree of an un-granted property is 404 for a supervisor (200 for a granted one); a cross-property floorId zone is 400; and archiving a zone drops it from the next tree read (cache busted).
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { client, HOST } from "../helpers/http.js";
 import { resetDb } from "../helpers/test-db.js";

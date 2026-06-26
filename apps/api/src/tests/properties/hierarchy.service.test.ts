@@ -1,3 +1,4 @@
+// Proves the service invariants: create/read tree, active-sibling name uniqueness (409) with reuse after archive, parent-must-be-active (404 missing / 409 archived) for building/floor/zone, archive cascade (building archive leaves property-level zones), and the A9 zone↔floor↔property rule (400) on create and re-parent.
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { basePrisma } from "../../shared/prisma/base-client.js";
 import { resetDb } from "../helpers/test-db.js";
