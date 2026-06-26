@@ -2,6 +2,7 @@
 // impersonating whom) as APPEND-ONLY rows in the AuditLog table (DB triggers block edit/delete).
 // Same signature as the Stage 0 seam — callers are unchanged; only the implementation moved from
 // console to a real table. Runs on the tenant-scoped client, so tenantId is auto-stamped.
+import { Prisma } from "@prisma/client";
 import { requireContext } from "../../shared/context/request-context.js";
 import { getScopedPrisma } from "../../shared/prisma/index.js";
 
@@ -12,10 +13,11 @@ export const audit = {
     const ctx = requireContext();
     await getScopedPrisma().auditLog.create({
       data: {
+        tenantId: ctx.tenantId,
         action: input.action,
         entityType: input.entityType,
         entityId: input.entityId,
-        metadata: input.metadata === undefined ? undefined : (input.metadata as object),
+        metadata: input.metadata == null ? undefined : (input.metadata as Prisma.InputJsonValue),
         actorUserId: ctx.userId ?? null,
         impersonatedBy: ctx.impersonatedBy ?? null,
         ipAddress: ctx.ip ?? null,
