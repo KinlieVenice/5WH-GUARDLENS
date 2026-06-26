@@ -50,6 +50,7 @@ model Tenant {
   authTokens    AuthToken[]
   properties    Property[]
   auditLogs     AuditLog[]
+  outboxEvents  OutboxEvent[]
 }
 
 model User {
@@ -178,6 +179,28 @@ model Zone {
   property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   floor    Floor?   @relation(fields: [floorId], references: [id], onDelete: SetNull)
   @@index([tenantId, propertyId])
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+model OutboxEvent {
+  id            String       @id @default(cuid())
+  tenantId      String
+  type          String
+  payload       Json
+  status        OutboxStatus @default(PENDING)
+  attempts      Int          @default(0)
+  nextAttemptAt DateTime     @default(now())
+  lockedUntil   DateTime?
+  createdAt     DateTime     @default(now())
+  processedAt   DateTime?
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  @@index([status, nextAttemptAt])
+  @@index([tenantId, type])
 }
 
 model AuditLog {
