@@ -60,7 +60,16 @@ describe("report-types.service", () => {
   it("createType rejects an invalid field schema", async () => {
     await expect(
       run(() => svc.createType({ key: "bad", name: "Bad", lane: "SECURITY" }, [{ key: "d", label: "D", type: "dropdown", required: true } as never])),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/dropdown requires options/i);
+  });
+
+  it("getType returns the type with nested versions ordered ascending", async () => {
+    const { type } = await run(() => svc.createType({ key: "viz", name: "Viz", lane: "SECURITY" }, fieldsV1));
+    await run(() => svc.addVersion(type.id, fieldsV2));
+    const full = await run(() => svc.getType(type.id));
+    expect(full.id).toBe(type.id);
+    expect(full.versions).toHaveLength(2);
+    expect(full.versions.map((v) => v.version)).toEqual([1, 2]);
   });
 
   it("updateTypeMeta patches name/lane/isActive in place without a new version", async () => {

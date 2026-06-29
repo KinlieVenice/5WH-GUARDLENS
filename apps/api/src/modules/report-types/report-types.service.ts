@@ -47,9 +47,17 @@ export async function addVersion(reportTypeId: string, fields: FormSchema): Prom
     where: { reportTypeId }, orderBy: { version: "desc" },
   });
   const next = (last?.version ?? 0) + 1;
-  return db.reportTypeVersion.create({
-    data: { reportTypeId, version: next, schema, createdById: ctx.userId ?? "system" },
-  });
+  try {
+    return await db.reportTypeVersion.create({
+      data: { reportTypeId, version: next, schema, createdById: ctx.userId ?? "system" },
+    });
+  } catch (e) {
+    // Two concurrent addVersion calls can compute the same `next`; the unique
+    // [reportTypeId,version] constraint makes the loser throw P2002 → surface as 409, not 500.
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")
+      throw new AppError("CONFLICT", "Version conflict, retry", 409);
+    throw e;
+  }
 }
 
 // Patch type metadata in place. key + isSystem are not accepted (immutable).
@@ -60,7 +68,10 @@ export async function updateTypeMeta(
   const db = getScopedPrisma();
   const type = await db.reportType.findUnique({ where: { id: reportTypeId } });
   if (!type) throw new AppError("NOT_FOUND", "Report type not found", 404);
-  return db.reportType.update({ where: { id: reportTypeId }, data: patch });
+  // Allowlist fields explicitly: TS types erase at runtime, so destructure to stop a
+  // raw patch (e.g. req.body) from smuggling key/isSystem into the update.
+  const { name, lane, isActive } = patch;
+  return db.reportType.update({ where: { id: reportTypeId }, data: { name, lane, isActive } });
 }
 
 export async function listTypes(opts?: { lane?: ReportLane; activeOnly?: boolean }): Promise<ReportType[]> {
