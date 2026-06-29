@@ -51,6 +51,7 @@ model Tenant {
   properties    Property[]
   auditLogs     AuditLog[]
   outboxEvents  OutboxEvent[]
+  reportTypes   ReportType[]
 }
 
 model User {
@@ -181,6 +182,11 @@ model Zone {
   @@index([tenantId, propertyId])
 }
 
+enum ReportLane {
+  SECURITY
+  SAFETY
+}
+
 enum OutboxStatus {
   PENDING
   PROCESSED
@@ -220,4 +226,42 @@ model AuditLog {
   correctedBy AuditLog[] @relation("AuditCorrection")
   @@index([tenantId, entityType, entityId])
   @@index([tenantId, at])
+}
+
+// A catalog entry (e.g. "Theft", "Hazard"). Fields live in versions, not here.
+// `lane` drives routing (security vs safety); `isSystem` = shipped prebuilt;
+// retire via isActive=false (never hard-deleted — incidents pin types/versions).
+model ReportType {
+  id        String     @id @default(cuid())
+  tenantId  String
+  key       String
+  name      String
+  lane      ReportLane @default(SECURITY)
+  isSystem  Boolean    @default(false)
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+
+  tenant   Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  versions ReportTypeVersion[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId, lane])
+}
+
+// An immutable snapshot of a report type's form fields. Editing a form inserts a
+// NEW version row (version = max+1) rather than mutating the old one, so an incident
+// pinned to v1 never breaks when v2 adds a field. `schema` is Field[] (see report-schema.ts).
+model ReportTypeVersion {
+  id           String   @id @default(cuid())
+  tenantId     String
+  reportTypeId String
+  version      Int
+  schema       Json
+  createdById  String
+  createdAt    DateTime @default(now())
+
+  reportType ReportType @relation(fields: [reportTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([reportTypeId, version])
+  @@index([tenantId, reportTypeId])
 }
