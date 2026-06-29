@@ -21,6 +21,8 @@ async function makeTenant(slug: string): Promise<TenantFixture> {
   await basePrisma.zone.create({ data: { tenantId: t.id, propertyId: p.id, floorId: f.id, name: "Z" } });
   await basePrisma.auditLog.create({ data: { tenantId: t.id, action: "seed", entityType: "Tenant", entityId: t.id } });
   await basePrisma.outboxEvent.create({ data: { tenantId: t.id, type: "seed", payload: {} } });
+  const rt = await basePrisma.reportType.create({ data: { tenantId: t.id, key: "seed", name: "Seed", lane: "SECURITY", isSystem: false } });
+  await basePrisma.reportTypeVersion.create({ data: { tenantId: t.id, reportTypeId: rt.id, version: 1, schema: [], createdById: u.id } });
   const s = await basePrisma.session.create({
     data: { tenantId: t.id, userId: u.id, expiresAt: new Date(Date.now() + 3.6e6) },
   });

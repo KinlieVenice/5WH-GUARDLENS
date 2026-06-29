@@ -23,9 +23,9 @@ export async function createType(
   const db = getScopedPrisma();
   try {
     return await db.$transaction(async (tx) => {
-      const type = await tx.reportType.create({ data: { key: input.key, name: input.name, lane: input.lane } });
+      const type = await tx.reportType.create({ data: { tenantId: ctx.tenantId, key: input.key, name: input.name, lane: input.lane } });
       const version = await tx.reportTypeVersion.create({
-        data: { reportTypeId: type.id, version: 1, schema, createdById: ctx.userId ?? "system" },
+        data: { tenantId: ctx.tenantId, reportTypeId: type.id, version: 1, schema, createdById: ctx.userId ?? "system" },
       });
       return { type, version };
     });
@@ -49,7 +49,7 @@ export async function addVersion(reportTypeId: string, fields: FormSchema): Prom
   const next = (last?.version ?? 0) + 1;
   try {
     return await db.reportTypeVersion.create({
-      data: { reportTypeId, version: next, schema, createdById: ctx.userId ?? "system" },
+      data: { tenantId: ctx.tenantId, reportTypeId, version: next, schema, createdById: ctx.userId ?? "system" },
     });
   } catch (e) {
     // Two concurrent addVersion calls can compute the same `next`; the unique
