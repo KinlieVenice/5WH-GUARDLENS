@@ -15,6 +15,7 @@ import { authRoutes } from "./modules/auth/auth.routes.js";
 import { propertyRoutes } from "./modules/properties/properties.routes.js";
 import { buildingRoutes, floorRoutes, zoneRoutes } from "./modules/properties/hierarchy.routes.js";
 import { platformRoutes } from "./modules/platform/platform.routes.js";
+import { reportTypeRoutes } from "./modules/report-types/report-types.routes.js";
 
 export function createApp() {
   const app = express();
@@ -27,6 +28,7 @@ export function createApp() {
   app.use("/api", resolveTenant, loadContext);
   app.use("/api/auth", authRoutes);
   app.use("/api/properties", propertyRoutes);
+  app.use("/api/report-types", reportTypeRoutes);
   app.use("/api/buildings", buildingRoutes);
   app.use("/api/floors", floorRoutes);
   app.use("/api/zones", zoneRoutes);
