@@ -15,6 +15,7 @@ const SANCTIONED = new Set([
   "shared/db/raw.ts",                  // tenant-asserting raw wrapper (Task 7)
   "jobs/token-cleanup.ts",             // cross-tenant maintenance (Task 19)
   "modules/outbox/outbox.relay.ts",    // cross-tenant relay (Stage 1.3)
+  "modules/report-types/system-types.ts", // per-tenant system seed, explicit tenantId (Stage 1.4)
 ]);
 
 function walk(dir: string, out: string[] = []): string[] {

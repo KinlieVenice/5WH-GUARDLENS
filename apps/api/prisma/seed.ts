@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
+import { seedSystemReportTypes } from "../src/modules/report-types/system-types.js";
 const db = new PrismaClient();
 
 async function main() {
@@ -8,6 +9,7 @@ async function main() {
     update: {},
     create: { name: "Acme Hotel", slug: "acme" },
   });
+  await seedSystemReportTypes(tenant.id);
   const passwordHash = await argon2.hash("password123", { type: argon2.argon2id });
   const admin = await db.user.upsert({
     where: { tenantId_email: { tenantId: tenant.id, email: "admin@acme.test" } },
