@@ -40,3 +40,8 @@ coverage/
 
 # SDD scratch (briefs, reports, progress ledger)
 .superpowers/
+
+# Agent tooling scratch (caveman plugin skill copies, skills lockfile)
+.agents/
+.qwen/
+skills-lock.json
