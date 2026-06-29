@@ -66,4 +66,13 @@ describe("report-types HTTP", () => {
     const list = await client().get("/api/report-types?activeOnly=true").set("Host", HOST).set("Cookie", jar(admin));
     expect(list.body.data.find((t: { key: string }) => t.key === "lost")).toBeUndefined();
   });
+
+  it("PATCH cannot change immutable key or isSystem (.strict rejects)", async () => {
+    const c = await client().post("/api/report-types").set("Host", HOST).set("Cookie", jar(admin)).send({ key: "immut", name: "Immut", lane: "SECURITY", fields: v1 });
+    const id = c.body.data.type.id;
+    const r1 = await client().patch(`/api/report-types/${id}`).set("Host", HOST).set("Cookie", jar(admin)).send({ key: "hacked" });
+    expect(r1.status).toBe(400);
+    const r2 = await client().patch(`/api/report-types/${id}`).set("Host", HOST).set("Cookie", jar(admin)).send({ isSystem: true });
+    expect(r2.status).toBe(400);
+  });
 });
